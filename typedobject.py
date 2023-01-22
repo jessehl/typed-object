@@ -1,14 +1,15 @@
 from __future__ import annotations
-from typing import Optional, cast
+from typing import Optional
 from itertools import chain
 
 class Object:
     
-    def __init__(self, *args: Optional[Object], **kwargs): 
-        for k,v in chain(
+    def __init__(self, *args: Optional[Object], **kwargs):
+        attrs_to_set = {k:v for k,v in chain(
             chain.from_iterable((arg.__dict__.items() for arg in args if arg)),
             kwargs.items()
-        ):
+        )}
+        for k,v in attrs_to_set.items():
             self.__setattr__(k,v) 
 
     def __repr__(self) -> str:
@@ -16,9 +17,9 @@ class Object:
         return  f"({', '.join(values)})"
 
 
-g = Object(a = 1, b = '2')
+g = Object(Object(a = 1), None, a = '1', b = 2)
 
-g.b + '3'
-g.a + 1
-g.c + '2'
+
+
+
 

@@ -1,77 +1,69 @@
 from __future__ import annotations
-from typing_extensions import Final, Literal
 from typing import Callable, TypeVar
-import typing as ty
 from mypy.nodes import (
-    Var, Argument, ARG_POS, FuncDef, PassStmt, Block,
-    SymbolTableNode, MDEF
-)
-from mypy.nodes import NameExpr
-from mypy.types import UnionType, NoneType, Instance, ExtraAttrs
-from mypy.types import NoneTyp, Type, CallableType, get_proper_type, Instance, UnionType
-from mypy.typevars import fill_typevars
-from mypy.semanal import set_callable_name
-from mypy.plugin import Plugin, ClassDefContext, FunctionContext
-from mypy.plugins.attrs import attr_class_maker_callback
-from mypy.plugins.common import add_method
-from mypy.plugins.common import (
-    _get_decorator_bool_argument,
-    add_attribute_to_class,
-    add_method,
-    deserialize_and_fixup_type,
-)
-from mypy.nodes import (
-    ClassDef, Block, TypeInfo, SymbolTable, SymbolTableNode, MDEF, GDEF, Var
+    Var, SymbolTableNode, MDEF
 )
 
+from mypy.types import Instance, NoneType
+from mypy.types import Type, Instance
+from mypy.plugin import Plugin, FunctionContext
+from itertools import chain
+from typedobject import Object
 
-from typing import NewType
 
-T = TypeVar('T')
+class Bar:
+    def visit_instance(self, ins):
+        print(ins)
 
-
-class MyPlugin(Plugin):
+class TypedObjectPlugin(Plugin):
     """A plugin to make MyPy understand TypedObjects."""
     def get_function_hook(self, fullname: str) -> Callable[[FunctionContext], Type] | None:
-        print('fullname',fullname)
         if fullname == 'typedobject.Object':
-            return get_shizzle
+            return add_input_args_to_class_hook
+        return None
 
+def add_input_args_to_class_hook(ctx: FunctionContext):
+    assert isinstance(ctx.default_return_type, Instance)
 
-def get_shizzle(ctx: FunctionContext):
+    # Fetch argument name-type pairs (both args and kwargs).
+    input_args = chain(zip(chain.from_iterable(ctx.arg_names), chain.from_iterable(ctx.arg_types)))
+    names_types = list((name, type) for name, type in input_args if not isinstance(type, NoneType))
+
+    print("here")
+    # TODO: Get all attributes from 'args' (i.e. from other TypedObjects).
     try:
-        types = ctx.arg_types[1:][0]
-        names = ctx.arg_names[1:][0]
-        info = ctx.default_return_type.type
-        print(types, names, ctx.default_return_type, info)
-
-
-        def add_field(
-            var: Var, is_initialized_in_class: bool = False, is_property: bool = False
-        ) -> None:
-            var.info = info
-            var.is_initialized_in_class = is_initialized_in_class
-            var.is_property = is_property
-            var._fullname = f"{info.fullname}.{var.name}"
-            info.names[var.name] = SymbolTableNode(MDEF, var)
-
-        fields = [Var(name, typ) for name, typ in zip(names, types)]
-        for var in fields:
-            add_field(var, is_property=True)
-    
-        my_instance = Instance(ctx.default_return_type.type, types,
-                    line=ctx.default_return_type.line,
-                    column=ctx.default_return_type.column)
- 
-        return my_instance
-
-
-
-
+        bar = [(name, Instance(type, []).type.slots) for name, type in names_types]
+        print('bar', bar)
     except Exception as e:
         print(e)
+
+    print('names_types', names_types)
+
+    info = ctx.default_return_type.type 
+
+    def add_field(
+        var: Var, is_initialized_in_class: bool = False, is_property: bool = False
+    ) -> None:
+        var.info = info
+        var.is_initialized_in_class = is_initialized_in_class
+        var.is_property = is_property
+        var._fullname = f"{info.fullname}.{var.name}"
+        info.names[var.name] = SymbolTableNode(MDEF, var)
+
+    fields = [Var(str(name), typ) for name, typ in names_types]
+    for var in fields:
+        add_field(var, True, True)
+
+    my_instance = Instance(ctx.default_return_type.type, [],
+                line=ctx.default_return_type.line,
+                column=ctx.default_return_type.column)
+
+    return my_instance
+
+
+
 
 
 
 def plugin(version: str):
-    return MyPlugin
+    return TypedObjectPlugin
