@@ -55,7 +55,7 @@ def get_shizzle(ctx: FunctionContext):
             var._fullname = f"{info.fullname}.{var.name}"
             info.names[var.name] = SymbolTableNode(MDEF, var)
 
-        fields = [Var(name, typ, True, True) for name, typ in zip(names, types)]
+        fields = [Var(name, typ) for name, typ in zip(names, types)]
         for var in fields:
             add_field(var, is_property=True)
     
