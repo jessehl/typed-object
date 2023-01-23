@@ -18,7 +18,7 @@ def add_input_args_to_class(ctx: FunctionContext):
     assert isinstance(ctx.default_return_type, Instance)
 
     # Fetch argument name-type pairs (both args and kwargs).
-    input_args = chain(zip(chain.from_iterable(ctx.arg_names), chain.from_iterable(ctx.arg_types)))
+    input_args = zip(chain.from_iterable(ctx.arg_names), chain.from_iterable(ctx.arg_types))
 
     # TODO: how is it possible that nested object assignment (i.e. 'a = Object(a = 1); b = Object(a)') is typed properly?
     # The types of 'a' are never assigned to the created object, it seems. 
