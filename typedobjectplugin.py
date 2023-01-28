@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Callable
-from mypy.nodes import Var, SymbolTableNode, MDEF
+from mypy.nodes import Var, SymbolTableNode, MDEF, TypeInfo
 from mypy.types import Instance
 from mypy.types import Type, Instance
 from mypy.plugin import Plugin, FunctionContext
@@ -17,22 +17,17 @@ class TypedObjectPlugin(Plugin):
 def add_input_args_to_class(ctx: FunctionContext):
     assert isinstance(ctx.default_return_type, Instance)
 
-    # Fetch argument name-type pairs (both args and kwargs).
-    input_args = zip(chain.from_iterable(ctx.arg_names), chain.from_iterable(ctx.arg_types))
+    # Fetch args types.
+    objects = (_ for _ in ctx.arg_types[0] if isinstance(_, Instance))
+    args_of_objects = chain.from_iterable(_.type.names.items() for _ in objects)
+    args_types = ((arg, node.type) for arg, node in args_of_objects if not node.type is None)
 
-    # TODO: how is it possible that nested object assignment (i.e. 'a = Object(a = 1); b = Object(a)') is typed properly?
-    # The types of 'a' are never assigned to the created object, it seems. 
+    # Fetch kwargs types. 
+    kwargs_types = zip(chain.from_iterable(ctx.arg_names[1:]), chain.from_iterable(ctx.arg_types[1:]))
 
     # TODO: add support for inferring return types when args contains a Union of Objects.  
 
-    # args = ctx.arg_types[0]
-    # if args:
-
-     #   items = args[0].type.names.items()
-      #  for key, item in items:
-       #     print(key)
-        #    print(item)
-            
+    
     info = ctx.default_return_type.type
     def add_field(name: str, type: Type):
         var =               Var(name, type)
@@ -41,10 +36,9 @@ def add_input_args_to_class(ctx: FunctionContext):
         info.names[name] =  SymbolTableNode(MDEF, var)
         return (type, name)
 
-    test = [add_field(str(name), type) for name, type in input_args]
-    print("here")
-    print(test)
-
+    all_fields = dict(chain(args_types, kwargs_types))
+    print([add_field(str(name), type) for name, type in all_fields.items()])
+    
     return Instance(
         typ =       ctx.default_return_type.type, 
         args =      [],
