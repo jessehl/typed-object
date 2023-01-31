@@ -1,9 +1,6 @@
 from __future__ import annotations
 from itertools import chain
 
-
-
-
 class Object:
     def __init__(self, *args: Object, **kwargs) -> None:
         self.__dict__.update(
