@@ -18,7 +18,6 @@ class TypedObjectPlugin(Plugin):
 def add_input_args_to_class(ctx: FunctionContext):
     assert isinstance(ctx.default_return_type, Instance)
 
-
     # Fetch args types.
     objects = (_ for _ in ctx.arg_types[0] if isinstance(_, Instance))
     args_of_objects = chain.from_iterable(_.type.names.items() for _ in objects)
@@ -30,14 +29,13 @@ def add_input_args_to_class(ctx: FunctionContext):
     # Dedupe fields. 
     all_fields = dict(chain(args, kwargs))
 
-
     # TODO: add support for inferring return types when args contains a Union of Objects.  
-
     # TODO: Object() now only has one Symbol Table entry, so we're overwriting this entry when modifing the return type. 
+    info = ctx.default_return_type.type
 
-    info = ctx.default_return_type.copy_modified(args = [v for k,v in all_fields.items()]).type
+    print(info)
 
-    info._fullname = str(all_fields)
+
     def add_field(name: str, type: Type):
         var =               Var(name, type)
         var.info =          info
@@ -46,8 +44,7 @@ def add_input_args_to_class(ctx: FunctionContext):
         return (type, name)
     
     [add_field(str(name), type) for name, type in all_fields.items()]
-    print('here')
-
+    
     return Instance(
         typ =       ctx.default_return_type.type,
         args =      list(all_fields.values()),
