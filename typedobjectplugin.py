@@ -45,11 +45,11 @@ def add_input_args_to_class(ctx: FunctionContext):
         info.names[name] =  SymbolTableNode(MDEF, var)
         return (type, name)
     
-    print([add_field(str(name), type) for name, type in all_fields.items()])
-
+    [add_field(str(name), type) for name, type in all_fields.items()]
+    print('here')
 
     return Instance(
-        typ =       info,
+        typ =       ctx.default_return_type.type,
         args =      list(all_fields.values()),
         line =      ctx.default_return_type.line,
         column =    ctx.default_return_type.column
