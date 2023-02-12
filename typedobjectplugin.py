@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing import Callable
+from typing import Callable, Dict, Tuple
 from mypy.nodes import Var, SymbolTableNode, MDEF, ClassDef, Block, TypeInfo, SymbolTable
-from mypy.types import Instance
-from mypy.types import Type
+from mypy.types import Instance, Type
 from mypy.plugin import Plugin, FunctionContext
 from itertools import chain
 
@@ -10,45 +9,50 @@ class TypedObjectPlugin(Plugin):
     """ A plugin to make MyPy understand TypedObjects."""
     def get_function_hook(self, fullname: str) -> Callable[[FunctionContext], Type] | None:
         if fullname.startswith('typedobject.Object'):
-            return add_input_args_to_class
+            return define_new_typedobject
         return None
 
+def create_type_info(type_info: TypeInfo, attributes: Dict[str, Type]) -> TypeInfo:
+    """ Returns the TypeInfo of a new typedobject class definition. """
+    new_class_def = ClassDef('Object' + str(attributes), defs = Block([]))
+    new_class_def.fullname = 'Object' + str(attributes)
 
-def add_input_args_to_class(ctx: FunctionContext):
-    assert isinstance(ctx.default_return_type, Instance)
+    info = TypeInfo(SymbolTable(), new_class_def, 'typedobject')
+    info.bases = [Instance(type_info, [])]
+    info.mro = [info, type_info]
 
-    # Fetch args types.
-    objects = (_ for _ in ctx.arg_types[0] if isinstance(_, Instance))
-    args_of_objects = chain.from_iterable(_.type.names.items() for _ in objects)
-    args = ((arg, node.type) for arg, node in args_of_objects if not node.type is None)
-
-    # Fetch kwargs types. 
-    kwargs = zip(chain.from_iterable(ctx.arg_names[1:]), chain.from_iterable(ctx.arg_types[1:]))
-
-    # Dedupe fields. 
-    all_fields = dict(chain(args, kwargs))
-
-    # TODO: add support for inferring return types when args contains a Union of Objects.  
-
-    # Create a new class definition, containing all fields. 
-    defn = ClassDef('Object' + str(all_fields), defs = Block([]))
-    defn.fullname = 'Object' + str(all_fields)
-    info = TypeInfo(SymbolTable(), defn, 'typedobject')
-    obj_type = ctx.api.named_generic_type('typedobject.Object', []).type 
-    info.bases = [Instance(obj_type, [])]
-    info.mro = [info, obj_type]
-    defn.info = info 
-
-    def add_field(name: str, type: Type):
-        var =               Var(name, type)
+    def get_symbol(field: Tuple[str, Type]):
+        var =               Var(*field)
         var.info =          info
         var._fullname =     f"{'Object'}.{var.name}"
-        info.names[name] =  SymbolTableNode(MDEF, var)
-        return (type, name)
-    [add_field(str(name), type) for name, type in all_fields.items()]
-    
-    return Instance(info, [])
+        return (var.name, SymbolTableNode(MDEF, var))
+    info.names.update(map(get_symbol, attributes.items()))
 
+    new_class_def.info = info
+    return info 
+
+def define_new_typedobject(ctx: FunctionContext):
+    """ Returns an Instance of a new typedobject.Object. """
+    assert isinstance(ctx.default_return_type, Instance)
+
+    # Get and flatten attributes of input Object(s).
+    objects = (_ for _ in ctx.arg_types[0] if isinstance(_, Instance))
+    args_of_objects = chain.from_iterable(_.type.names.items() for _ in objects)
+    attributes_of_objects = ((arg, node.type) for arg, node in args_of_objects if not node.type is None)
+
+    # Get types of kwargs.
+    kwargs = ((name, type) for name, type in zip(ctx.arg_names[1:][0], ctx.arg_types[1:][0]) if name)
+
+    return Instance(
+        create_type_info(
+            type_info   = ctx.api.named_generic_type('typedobject.Object', []).type, 
+            attributes  = dict(chain(attributes_of_objects, kwargs))
+        ),
+        []
+    )
+
+# TODO: add support for inferring return types when args contains a Union of Objects.  
+# TODO: add automatically derived return types for functions that create an Object. 
 
 
 def plugin(version: str):
