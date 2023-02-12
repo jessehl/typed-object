@@ -1,5 +1,5 @@
 # typed-object
-A Python class that behaves (and type-checks) like a JavaScript Object.
+A Python class that behaves like a TypeScript Object.
 
 ## Set-up
 Make sure to add the plugin to MyPy:
