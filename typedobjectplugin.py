@@ -9,11 +9,11 @@ class TypedObjectPlugin(Plugin):
     """ A plugin to make MyPy understand TypedObjects."""
     def get_function_hook(self, fullname: str) -> Callable[[FunctionContext], Type] | None:
         if fullname.startswith('typedobject.Object'):
-            return define_new_typedobject
+            return new_typedobject
         return None
 
 def create_type_info(type_info: TypeInfo, attributes: Dict[str, Type]) -> TypeInfo:
-    """ Returns the TypeInfo of a new typedobject class definition. """
+    """ Returns the TypeInfo of a new typedobject class. """
     new_class_def = ClassDef('Object' + str(attributes), defs = Block([]))
     new_class_def.fullname = 'Object' + str(attributes)
 
@@ -31,14 +31,14 @@ def create_type_info(type_info: TypeInfo, attributes: Dict[str, Type]) -> TypeIn
     new_class_def.info = info
     return info 
 
-def define_new_typedobject(ctx: FunctionContext):
+def new_typedobject(ctx: FunctionContext):
     """ Returns an Instance of a new typedobject.Object. """
     assert isinstance(ctx.default_return_type, Instance)
 
     # Get and flatten attributes of input Object(s).
     objects = (_ for _ in ctx.arg_types[0] if isinstance(_, Instance))
-    args_of_objects = chain.from_iterable(_.type.names.items() for _ in objects)
-    attributes_of_objects = ((arg, node.type) for arg, node in args_of_objects if not node.type is None)
+    names_of_objects = chain.from_iterable(_.type.names.items() for _ in objects)
+    attributes_of_objects = ((arg, node.type) for arg, node in names_of_objects if not node.type is None)
 
     # Get types of kwargs.
     kwargs = ((name, type) for name, type in zip(ctx.arg_names[1:][0], ctx.arg_types[1:][0]) if name)
