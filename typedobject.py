@@ -11,6 +11,3 @@ class Object:
     def __repr__(self) -> str:
         quote = "'"
         return  f"({', '.join(key.strip(quote) + '=' + value.__repr__() for key, value in self.__dict__.items())})"
-
-
-
